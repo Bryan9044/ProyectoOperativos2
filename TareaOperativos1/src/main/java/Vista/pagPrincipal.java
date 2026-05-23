@@ -30,7 +30,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import Controlador.ProcessStats;
 import java.util.List;
-import Modelo.VirtualMemory;
 import javax.swing.JTable;
 import javax.swing.JDialog;
 import javax.swing.JScrollPane;
@@ -50,7 +49,6 @@ public class pagPrincipal extends javax.swing.JFrame {
     BCP bcp;
     CPU cpu;
     SecondaryMemory secondaryMemory;
-    VirtualMemory virtualMemory;
     Dispatcher dispatcher;
     Scheduler scheduler = new Scheduler();
     EntryFile entryFile;
@@ -258,7 +256,7 @@ public class pagPrincipal extends javax.swing.JFrame {
     
     public void moveProcessToVirtual(BCP bcp) {
         try {
-            virtualMemory.swapOut(bcp);
+            secondaryMemory.swapOut(bcp);
             bcp.setStatus("Interrumpido - Virtual");
             SwingUtilities.invokeLater(() -> {
                 updateBCP();
@@ -272,7 +270,7 @@ public class pagPrincipal extends javax.swing.JFrame {
 
     public void restoreProcessFromVirtual(BCP bcp) {
         try {
-            virtualMemory.removeFromVirtual(bcp.getFileName());
+            secondaryMemory.removeFromVirtual(bcp.getFileName());
             bcp.setStatus("Ejecutando");
             SwingUtilities.invokeLater(() -> {
                 updateBCP();
@@ -442,9 +440,9 @@ public class pagPrincipal extends javax.swing.JFrame {
             }
         }
 
-        if (virtualMemory.hasSwappedProcesses()) {
+        if (secondaryMemory.hasSwappedProcesses()) {
             model.addRow(new Object[]{"---", "=== EN VIRTUAL  ==="});
-            for (Map.Entry<String, BCP> entry : virtualMemory.getSwappedProcesses().entrySet()) {
+            for (Map.Entry<String, BCP> entry : secondaryMemory.getSwappedProcesses().entrySet()) {
                 model.addRow(new Object[]{"VIRTUAL", entry.getKey() + " - " + entry.getValue().getStatus()});
             }
         }
@@ -958,8 +956,7 @@ public class pagPrincipal extends javax.swing.JFrame {
             
             memory = new Memory(principalSize,20); // En vez del 20 debo calcular todo el tamaño que va a tener
             // Con los BCP PERO ESO LO CAMBIO DESPUÉS CUANDO YA TENGA TODOS LOS ATRIBUTOS
-            secondaryMemory = new SecondaryMemory(secondaryMemorySize);
-            virtualMemory = new VirtualMemory(virtualMemorySize);
+            secondaryMemory = new SecondaryMemory(secondaryMemorySize, virtualMemorySize);
         } catch (IOException ex) {
             System.getLogger(pagPrincipal.class.getName()).log(System.Logger.Level.ERROR, (String) null, ex);
         }
@@ -1133,7 +1130,7 @@ public class pagPrincipal extends javax.swing.JFrame {
         
         try {
             dispatcher.saveContext();           
-            virtualMemory.swapOut(bcpToWait);
+            secondaryMemory.swapOut(bcpToWait);
             freeProcessMemory(bcpToWait);
             
             bcpToWait.setStatus("Esperando");
@@ -1154,11 +1151,11 @@ public class pagPrincipal extends javax.swing.JFrame {
         }
         
         try {
-            if (!virtualMemory.hasProcessInVirtual(waitingBCP.getFileName())) {
+            if (!secondaryMemory.hasProcessInVirtual(waitingBCP.getFileName())) {
                 throw new Exception("Proceso " + waitingBCP.getFileName() + " no encontrado en virtual");
             }
             
-            BCP restoredBCP = virtualMemory.swapIn(waitingBCP.getFileName());
+            BCP restoredBCP = secondaryMemory.swapIn(waitingBCP.getFileName());
             
             int originalBasePos = restoredBCP.getMemoryStart();
             
@@ -1200,8 +1197,8 @@ public class pagPrincipal extends javax.swing.JFrame {
             finishedBCP.setStatus("Finalizado");
             finishedBCP.markEnd();
             
-            if (virtualMemory.hasProcessInVirtual(finishedBCP.getFileName())) {
-                virtualMemory.removeFromVirtual(finishedBCP.getFileName());
+            if (secondaryMemory.hasProcessInVirtual(finishedBCP.getFileName())) {
+                secondaryMemory.removeFromVirtual(finishedBCP.getFileName());
             }
             
             freeProcessMemory(finishedBCP);
@@ -1487,10 +1484,6 @@ public class pagPrincipal extends javax.swing.JFrame {
             scheduler.getWaitingQueue().clear();
             readyAdmissionCount = 0;
             
-            for (String fileName : new ArrayList<>(virtualMemory.getSwappedProcesses().keySet())) {
-                virtualMemory.removeFromVirtual(fileName);
-            }
-            
 
             instructionNumber = 1;
             actualInstruction = 20;
@@ -1507,7 +1500,7 @@ public class pagPrincipal extends javax.swing.JFrame {
             freeMemorySlots.clear();
             bcpKernelPositions.clear();
 
-            virtualMemory.clear();
+            secondaryMemory.clear();
 
             statsList.clear();
 

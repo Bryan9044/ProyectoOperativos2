@@ -6,6 +6,8 @@ package Controlador;
 import Modelo.BCP;
 import java.util.LinkedList; 
 import Modelo.VirtualMemory;
+import Modelo.SecondaryMemory;
+
 /**
  *
  * @author bryan
@@ -56,15 +58,15 @@ public class Scheduler {
         }
     }
     
-    public void promoteWaitingIfReady(VirtualMemory virtualMemory) {
+    public void promoteWaitingIfReady(SecondaryMemory secondaryMemory) {
         BCP nextWaiting = peekWaiting();
         if (nextWaiting == null) return;
-
-        if (!virtualMemory.hasProcess(nextWaiting.getFileName())) {
+ 
+        if (!secondaryMemory.hasProcessInVirtual(nextWaiting.getFileName())) {
             promoteWaitingToReady();
             System.out.println("Proceso promovido a listo: " + nextWaiting.getFileName());
         }
-    }    
+    }   
     
     public boolean hasWaitingProcesses() {
         return !Waitingqueue.isEmpty();
